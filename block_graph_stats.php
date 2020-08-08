@@ -1,4 +1,5 @@
 <?php
+
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -14,10 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-/**
+/*
  * Main block class for graph_stats block
  *
- * @package    block_graph_stats
  * @copyright 2011 Éric Bugnet with help of Jean Fruitet
  * @copyright 2014 Wesley Ellis, Code Improvements.
  * @copyright 2014 Vadim Dvorovenko
@@ -37,7 +37,7 @@ require_once($CFG->dirroot . '/blocks/graph_stats/locallib.php');
  */
 class block_graph_stats extends block_base {
 
-    /**
+    /*
     * Standard block API function for initializing block instance
     * @return void
     */
@@ -91,6 +91,7 @@ class block_graph_stats extends block_base {
     public function applicable_formats() {
         return array(
             'site' => true,
+            'my' => true,
             'course-view' => true);
     }
 
@@ -119,6 +120,15 @@ class block_graph_stats extends block_base {
             return $this->content;
         }
 
+        $cfg = get_config('block_graph_stats');
+        // Number of seconds for cache today data.
+        if (isset($cfg->todaycache)) {
+            $todaycache = $cfg->todaycache;
+        } else {
+            $todaycache = 300;
+        }
+        $cache = cache::make('block_graph_stats', 'visits');
+
         /*
          * number of day for the graph
          * @var int
@@ -141,23 +151,43 @@ class block_graph_stats extends block_base {
 
         // Add some details in the footer.
         if ($COURSE->id > 1) {
-            // In a course.
-            $sql = "SELECT COUNT(DISTINCT(userid)) as countid FROM {logstore_standard_log}
-                    WHERE timecreated >= :time AND eventname = :eventname  AND courseid = :course";
-            $params = array(
-                    'time' => usergetmidnight(time()),
-                    'eventname' => '\core\event\course_viewed',
-                    'course' => $COURSE->id);
-            $connections = $DB->get_record_sql($sql , $params);
+            $needtoupdate = false;
+            $connections = $cache->get('visitsmain_' . $courseid . '_today');
+            $todayupdatedtime = $cache->get('visitsmain_' . $courseid . '_todayupdatedtime');
+            if ($todayupdatedtime === false || ($todayupdatedtime + $todaycache) < time()) {
+                $needtoupdate = true;
+                $cache->set('visitsmain_' . $courseid . '_todayupdatedtime', time());
+            }
+            if ($connections === false || $needtoupdate) {
+                // In a course.
+                $sql = "SELECT COUNT (*) as countid FROM (SELECT userid FROM {logstore_standard_log}
+                        WHERE timecreated >= :time AND eventname = :eventname  AND courseid = :course GROUP BY userid) AS users";
+                $params = array(
+                        'time' => usergetmidnight(time()),
+                        'eventname' => '\core\event\course_viewed',
+                        'course' => $COURSE->id);
+                $connections = $DB->get_record_sql($sql , $params);
+                $cache->set('visitsmain_' . $courseid . '_today', $connections);
+            }
             $this->content->footer .= get_string('connectedtodaya', 'block_graph_stats', $connections->countid);
         } else {
-            // In the front page.
-            $sql = "SELECT COUNT(DISTINCT(userid)) as countid FROM {logstore_standard_log}
-                    WHERE timecreated >= :time AND eventname = :eventname";
-            $params = array(
-                    'time' => usergetmidnight(time()),
-                    'eventname' => '\core\event\user_loggedin');
-            $connections = $DB->get_record_sql($sql, $params);
+            $needtoupdate = false;
+            $connections = $cache->get('visitsmain_' . $courseid . '_today');
+            $todayupdatedtime = $cache->get('visitsmain_' . $courseid . '_todayupdatedtime');
+            if ($todayupdatedtime === false || ($todayupdatedtime + $todaycache) < time()) {
+                $needtoupdate = true;
+                $cache->set('visitsmain_' . $courseid . '_todayupdatedtime', time());
+            }
+            if ($connections === false || $needtoupdate) {
+                // In the front page.
+                $sql = "SELECT COUNT (*) as countid FROM (SELECT userid FROM {logstore_standard_log}
+                        WHERE timecreated >= :time AND eventname = :eventname GROUP BY userid) AS users";
+                $params = array(
+                        'time' => usergetmidnight(time()),
+                        'eventname' => '\core\event\user_loggedin');
+                $connections = $DB->get_record_sql($sql, $params);
+                $cache->set('visitsmain_' . $courseid . '_today', $connections);
+            }
             $this->content->footer .= get_string('connectedtodaya', 'block_graph_stats', $connections->countid);
             $users = $DB->count_records('user', array('deleted' => 0, 'confirmed' => 1));
             $courses = $DB->count_records('course', array('visible' => 1));

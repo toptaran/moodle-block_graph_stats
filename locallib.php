@@ -1,4 +1,5 @@
 <?php
+
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -17,7 +18,8 @@
 /**
  * This file is used to setting the block allover the site
  *
- * @package    block_graph_stats
+ * @package    block
+ * @subpackage graph_stats
  * @copyright  2011 Éric Bugnet with help of Jean Fruitet
  * @copyright  2014 Wesley Ellis, Code Improvements.
  * @copyright  2014 Vadim Dvorovenko
@@ -44,6 +46,13 @@ function block_graph_stats_graph_google($courseid) {
         $daysnb = 30;
     }
 
+    // Number of seconds for cache today data.
+    if (isset($cfg->todaycache)) {
+        $todaycache = $cfg->todaycache;
+    } else {
+        $todaycache = 300;
+    }
+
     // Define type.
     if ($cfg->style == 'area') {
         $type1 = 'area';
@@ -63,13 +72,23 @@ function block_graph_stats_graph_google($courseid) {
     $a = 0;
     if ($courseid > 1) {
         for ($i = $daysnb; $i > -1; $i--) { // Days count.
-            $time1 = usergetmidnight(time() - $i * 60 * 60 * 24);
-            $time2 = usergetmidnight(time() - ($i - 1) * 60 * 60 * 24);
-            $visits1[$a] = $cache->get('visits1_' . $courseid . '_' . $time1);
-            if ($visits1[$a] === false) {
-                $sql = "SELECT COUNT(DISTINCT(userid)) as countid
+            $time1 = usergetmidnight(time() - $i * 60 * 60 *24);
+            $time2 = usergetmidnight(time() - ($i - 1) * 60 * 60 *24);
+            $needtoupdate = false;
+            if ($i == 0) {
+                $visits1[$a] = $cache->get('visits1_' . $courseid . '_today');
+                $todayupdatedtime = $cache->get('visits1_' . $courseid . '_todayupdatedtime');
+                if ($todayupdatedtime === false || ($todayupdatedtime + $todaycache) < time()) {
+                    $needtoupdate = true;
+                    $cache->set('visits1_' . $courseid . '_todayupdatedtime', time());
+                }
+            } else {
+                $visits1[$a] = $cache->get('visits1_' . $courseid . '_' . $time1);
+            }
+            if ($visits1[$a] === false || $needtoupdate) {
+                $sql = "SELECT COUNT (*) as countid FROM (SELECT userid
                         FROM {logstore_standard_log}
-                        WHERE timecreated >= :time1 AND timecreated < :time2 AND eventname = :eventname  AND courseid = :course";
+                        WHERE timecreated >= :time1 AND timecreated < :time2 AND eventname = :eventname  AND courseid = :course GROUP BY userid) AS users";
                 $params = array(
                     'time1' => $time1,
                     'time2' => $time2,
@@ -78,6 +97,8 @@ function block_graph_stats_graph_google($courseid) {
                 $visits1[$a] = $DB->get_field_sql($sql, $params);
                 if ($i > 0) {
                     $cache->set('visits1_' . $courseid . '_' . $time1, $visits1[$a]);
+                } else {
+                    $cache->set('visits1_' . $courseid . '_today', $visits1[$a]);
                 }
             }
             $days[$a] = userdate($time1, get_string('strftimedaydate', 'core_langconfig'));
@@ -85,27 +106,49 @@ function block_graph_stats_graph_google($courseid) {
         }
     } else {
         for ($i = $daysnb; $i > -1; $i--) { // Days count.
-            $time1 = usergetmidnight(time() - $i * 60 * 60 * 24);
-            $time2 = usergetmidnight(time() - ($i - 1) * 60 * 60 * 24);
-            $visits2[$a] = $cache->get('visits2_' . $courseid . '_' . $time1);
-            if ($visits2[$a] === false) {
-                $sql = "SELECT COUNT(DISTINCT(userid)) as countid
+            $time1 = usergetmidnight(time() - $i * 60 * 60 *24);
+            $time2 = usergetmidnight(time() - ($i - 1) * 60 * 60 *24);
+            $needtoupdate = false;
+            if ($i == 0) {
+                $visits2[$a] = $cache->get('visits2_' . $courseid . '_today');
+                $todayupdatedtime = $cache->get('visits2_' . $courseid . '_todayupdatedtime');
+                if ($todayupdatedtime === false || ($todayupdatedtime + $todaycache) < time()) {
+                    $needtoupdate = true;
+                    $cache->set('visits2_' . $courseid . '_todayupdatedtime', time());
+                }
+            } else {
+                $visits2[$a] = $cache->get('visits2_' . $courseid . '_' . $time1);
+            }
+            if ($visits2[$a] === false || $needtoupdate) {
+                $sql = "SELECT COUNT (*) as countid FROM (SELECT userid
                         FROM {logstore_standard_log}
-                        WHERE timecreated >= :time1 AND timecreated < :time2 AND eventname = :eventname";
+                        WHERE timecreated >= :time1 AND timecreated < :time2 AND eventname = :eventname GROUP BY userid) AS users";
                 $params = array(
                     'time1' => $time1,
                     'time2' => $time2,
                     'eventname' => '\core\event\user_loggedin');
                 $visits2[$a] = $DB->get_field_sql($sql, $params);
-                if ($i > 0) { // Do not cache today, because visits count can change.
+                if ($i > 0) { // do not cache today, because visits count can change
                     $cache->set('visits2_' . $courseid . '_' . $time1, $visits2[$a]);
+                } else {
+                    $cache->set('visits2_' . $courseid . '_today', $visits2[$a]);
                 }
             }
 
             if ($cfg->multi == 1) {
-                $visits1[$a] = $cache->get('visits1_' . $courseid . '_' . $time1);
-                if ($visits1[$a] === false) {
-                    $sql = "SELECT COUNT(userid) as countid
+                $needtoupdate = false;
+                if ($i == 0) {
+                    $visits1[$a] = $cache->get('visits1_' . $courseid . '_today');
+                    $todayupdatedtime = $cache->get('visits1_' . $courseid . '_todayupdatedtime');
+                    if ($todayupdatedtime === false || ($todayupdatedtime + $todaycache) < time()) {
+                        $needtoupdate = true;
+                        $cache->set('visits1_' . $courseid . '_todayupdatedtime', time());
+                    }
+                } else {
+                    $visits1[$a] = $cache->get('visits1_' . $courseid . '_' . $time1);
+                }
+                if ($visits1[$a] === false || $needtoupdate) {
+                    $sql = "SELECT COUNT(userid) as countid 
                             FROM {logstore_standard_log}
                             WHERE timecreated >= :time1 AND timecreated < :time2 AND eventname = :eventname";
                     $params = array(
@@ -113,8 +156,10 @@ function block_graph_stats_graph_google($courseid) {
                         'time2' => $time2,
                         'eventname' => '\core\event\user_loggedin');
                     $visits1[$a] = $DB->get_field_sql($sql, $params);
-                    if ($i > 0) { // Do not cache today, because visits count can change.
+                    if ($i > 0) { // do not cache today, because visits count can change
                         $cache->set('visits1_' . $courseid . '_' . $time1, $visits1[$a]);
+                    } else {
+                        $cache->set('visits1_' . $courseid . '_today', $visits1[$a]);
                     }
                 }
             } else {
@@ -169,6 +214,7 @@ function block_graph_stats_graph_google($courseid) {
                     color: "' . $cfg->axis_colour . '"
                 }
             },
+            chartArea:{left:30, top:10, bottom: 10, right: 0, width:"100%", height:"100%"},
             series: {
                 0: {
                     color: "' . $cfg->color1 . '",

@@ -1,4 +1,5 @@
 <?php
+
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -17,7 +18,8 @@
 /**
  * This file is used to setting the block allover the site
  *
- * @package    block_graph_stats
+ * @package    block
+ * @subpackage graph_stats
  * @copyright  2011 Éric Bugnet with help of Jean Fruitet
  * @copyright  2014 Wesley Ellis, Code Improvements.
  * @copyright  2014 Vadim Dvorovenko
@@ -40,6 +42,8 @@ $string['connectedtodaytitle'] = 'Connections today:';
 $string['coursesnba'] = 'Total courses&nbsp;: {$a}';
 $string['daysnb'] = 'Number of days';
 $string['daysnb_help'] = 'Number of days to print on the graph (not including today)';
+$string['todaycache'] = 'Number of seconds';
+$string['todaycache_help'] = 'Number of seconds to cache today stats (time need to refresh)';
 $string['graph_stats:addinstance'] = 'Add a new Graph Stats Block';
 $string['graph_stats:myaddinstance'] = 'Add a new Graph Stats to the My Moodle page';
 $string['graphheight'] = 'Height';

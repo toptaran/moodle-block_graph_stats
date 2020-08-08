@@ -1,4 +1,5 @@
 <?php
+
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -17,15 +18,16 @@
 /**
  * This file is used to setting the block allover the site
  *
- * @package    block_graph_stats
+ * @package    block
+ * @subpackage graph_stats
  * @copyright  2011 Éric Bugnet with help of Jean Fruitet
  * @copyright  2014 Wesley Ellis, Code Improvements.
  * @copyright  2014 Vadim Dvorovenko
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$plugin->version = 2015110900;
-$plugin->release = '4.0 (Build: 2015110900)';
+$plugin->version = 2020080700;
+$plugin->release = '4.0.1 (Build: 2020080700)';
 $plugin->cron = 0;
 $plugin->requires = 2014051200;
 $plugin->component = 'block_graph_stats';
